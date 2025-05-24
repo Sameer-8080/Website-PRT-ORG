@@ -1,28 +1,53 @@
 pipeline {
-    environment {
-        DOCKERHUB_CREDENTIALS = credentials('dhubcred')
-    }
     agent {
         label 'K-M'
     }
+
+    environment {
+        DOCKERHUB_CREDENTIALS = credentials('dhubcred')
+    }
+
     stages {
-        stage('Git') {
+        stage('Git Checkout') {
             steps {
-                git 'https://github.com/Ilamparidhi-21/Website-PRT-ORG-1.git'
+                git branch: 'patch-1', url: 'https://github.com/Ilamparidhi-21/Website-PRT-ORG-1.git'
             }
         }
-        stage('Docker') {
+
+        stage('Docker Build & Push') {
             steps {
-                sh 'sudo docker login -u ${DOCKERHUB_CREDENTIALS_USR} -p ${DOCKERHUB_CREDENTIALS_PSW}'
-                sh 'sudo docker build /home/ubuntu/jenkins/workspace/test-prt-pipeline/ -t ilamparidhi/prt-task'
-                sh 'sudo docker push ilamparidhi/prt-task'
+                sh '''
+                    echo "Logging into DockerHub..."
+                    docker login -u $DOCKERHUB_CREDENTIALS_USR -p $DOCKERHUB_CREDENTIALS_PSW
+
+                    echo "Building Docker Image..."
+                    docker build -t ilamparidhi/prt-task .
+
+                    echo "Pushing Docker Image..."
+                    docker push ilamparidhi/prt-task
+                '''
             }
         }
-        stage('K8s') {
+
+        stage('Deploy to Kubernetes') {
             steps {
-                sh 'kubectl apply -f Deployment.yaml'
-                sh 'kubectl apply -f service.yaml'
+                sh '''
+                    echo "Applying Kubernetes Deployment..."
+                    kubectl apply -f Deployment.yaml
+
+                    echo "Applying Kubernetes Service..."
+                    kubectl apply -f service.yaml
+                '''
             }
+        }
+    }
+
+    post {
+        failure {
+            echo 'Pipeline failed!'
+        }
+        success {
+            echo 'Pipeline completed successfully!'
         }
     }
 }
